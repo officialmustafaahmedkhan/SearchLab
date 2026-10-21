@@ -1,0 +1,1 @@
+"""SearchLab Vercel entrypoint package."""

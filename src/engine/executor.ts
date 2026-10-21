@@ -38,19 +38,37 @@ export interface ExtractOutcome {
  * Configurable at build time via the `VITE_ENGINE_URL` environment variable:
  *
  *   - Local development: leave unset (defaults to `http://127.0.0.1:8000`).
- *   - Vercel (same-origin): the bundled FastAPI app in `app/main.py` serves the
- *     engine at the site root, so leaving this unset still works only if the
- *     localhost fallback is unreachable. Set it to the deployed origin
- *     (e.g. `https://your-app.vercel.app`) or to `/` for same-origin calls.
- *     Vercel has no JDK, so the Java option is hidden there
- *     (see `fetchEngineCapabilities`).
+ *   - Vercel (same origin): the bundled FastAPI app in `app/main.py` serves the
+ *     engine at the site root. Set `VITE_ENGINE_URL` to the deployed origin
+ *     (e.g. `https://your-app.vercel.app`). Vercel has no JDK, so the Java
+ *     option is hidden there (see `fetchEngineCapabilities`).
  *   - Separate engine host: set to the full URL, e.g.
  *     `https://searchlab-engine.fly.dev`.
+ *
+ * When this is left at the localhost default on a deployed (non-localhost)
+ * site, every request would target the *visitor's own machine* and fail with a
+ * bare "Failed to fetch". {@link isLocalhostFallbackOnDeployedSite} detects that
+ * so the UI can explain it instead of failing silently.
  */
+const LOCALHOST_ENGINE_URL = 'http://127.0.0.1:8000';
+
 const ENGINE_URL = (
   (import.meta.env?.VITE_ENGINE_URL as string | undefined)?.replace(/\/+$/, '') ||
-  'http://127.0.0.1:8000'
+  LOCALHOST_ENGINE_URL
 );
+
+/** True when the build fell back to localhost but the page is not on localhost. */
+export function isLocalhostFallbackOnDeployedSite(): boolean {
+  if (typeof window === 'undefined') return false;
+  if (ENGINE_URL !== LOCALHOST_ENGINE_URL) return false;
+  const host = window.location.hostname;
+  return host !== 'localhost' && host !== '127.0.0.1' && host !== '';
+}
+
+/** Human-readable engine target, shown in error messages. */
+export function getEngineUrl(): string {
+  return ENGINE_URL;
+}
 
 /** Upper bound on graph size, mirrored from the engine's MAX_EXTRACTED_NODES. */
 const MAX_GRAPH_NODES = 120;
@@ -109,7 +127,12 @@ abstract class EngineAdapter implements ExecutionAdapter {
         error: {
           message: aborted
             ? 'Execution timed out. Possible infinite loop.'
-            : `${this.name} error: ${err.message}. Ensure the SearchLab engine is reachable at ${ENGINE_URL} (locally, start it with "npm run engine").`,
+            : isLocalhostFallbackOnDeployedSite()
+              ? 'Could not reach the execution engine. This deployment was built ' +
+                'without VITE_ENGINE_URL set, so it is trying to reach ' +
+                `${ENGINE_URL} (this device). Set VITE_ENGINE_URL in the Vercel ` +
+                'project settings to the deployed site URL, then redeploy.'
+              : `${this.name} error: ${err.message}. Ensure the SearchLab engine is reachable at ${ENGINE_URL} (locally, start it with "npm run engine").`,
         },
         totalSteps: 0,
         durationMs: 0,
