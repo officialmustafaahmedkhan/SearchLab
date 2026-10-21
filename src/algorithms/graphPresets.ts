@@ -1,0 +1,102 @@
+import { GraphData } from '../types/graph';
+
+// Classic Russell & Norvig Romania Map with real straight-line heuristics to Bucharest
+export const romaniaMapPreset: GraphData = {
+  startNodeId: 'Arad',
+  goalNodeId: 'Bucharest',
+  nodes: [
+    { id: 'Arad', label: 'Arad', x: 60, y: 150, heuristic: 366 },
+    { id: 'Zerind', label: 'Zerind', x: 80, y: 70, heuristic: 374 },
+    { id: 'Oradea', label: 'Oradea', x: 160, y: 40, heuristic: 380 },
+    { id: 'Sibiu', label: 'Sibiu', x: 220, y: 190, heuristic: 253 },
+    { id: 'Timisoara', label: 'Timisoara', x: 60, y: 260, heuristic: 329 },
+    { id: 'Lugoj', label: 'Lugoj', x: 140, y: 310, heuristic: 244 },
+    { id: 'Mehadia', label: 'Mehadia', x: 145, y: 390, heuristic: 241 },
+    { id: 'Drobeta', label: 'Drobeta', x: 140, y: 470, heuristic: 242 },
+    { id: 'Craiova', label: 'Craiova', x: 280, y: 460, heuristic: 160 },
+    { id: 'RimnicuVilcea', label: 'Rimnicu Vilcea', x: 280, y: 270, heuristic: 193 },
+    { id: 'Fagaras', label: 'Fagaras', x: 380, y: 200, heuristic: 176 },
+    { id: 'Pitesti', label: 'Pitesti', x: 420, y: 340, heuristic: 100 },
+    { id: 'Bucharest', label: 'Bucharest', x: 540, y: 390, heuristic: 0 },
+    { id: 'Giurgiu', label: 'Giurgiu', x: 500, y: 480, heuristic: 77 },
+    { id: 'Urziceni', label: 'Urziceni', x: 640, y: 330, heuristic: 80 },
+    { id: 'Hirsova', label: 'Hirsova', x: 730, y: 330, heuristic: 151 },
+    { id: 'Eforie', label: 'Eforie', x: 770, y: 410, heuristic: 161 },
+    { id: 'Vaslui', label: 'Vaslui', x: 700, y: 200, heuristic: 199 },
+    { id: 'Iasi', label: 'Iasi', x: 650, y: 110, heuristic: 226 },
+    { id: 'Neamt', label: 'Neamt', x: 550, y: 70, heuristic: 234 },
+  ],
+  edges: [
+    { id: 'e1', from: 'Arad', to: 'Zerind', cost: 75, directed: false },
+    { id: 'e2', from: 'Arad', to: 'Sibiu', cost: 140, directed: false },
+    { id: 'e3', from: 'Arad', to: 'Timisoara', cost: 118, directed: false },
+    { id: 'e4', from: 'Zerind', to: 'Oradea', cost: 71, directed: false },
+    { id: 'e5', from: 'Oradea', to: 'Sibiu', cost: 151, directed: false },
+    { id: 'e6', from: 'Timisoara', to: 'Lugoj', cost: 111, directed: false },
+    { id: 'e7', from: 'Lugoj', to: 'Mehadia', cost: 70, directed: false },
+    { id: 'e8', from: 'Mehadia', to: 'Drobeta', cost: 75, directed: false },
+    { id: 'e9', from: 'Drobeta', to: 'Craiova', cost: 120, directed: false },
+    { id: 'e10', from: 'Sibiu', to: 'Fagaras', cost: 99, directed: false },
+    { id: 'e11', from: 'Sibiu', to: 'RimnicuVilcea', cost: 80, directed: false },
+    { id: 'e12', from: 'RimnicuVilcea', to: 'Craiova', cost: 146, directed: false },
+    { id: 'e13', from: 'RimnicuVilcea', to: 'Pitesti', cost: 97, directed: false },
+    { id: 'e14', from: 'Craiova', to: 'Pitesti', cost: 138, directed: false },
+    { id: 'e15', from: 'Fagaras', to: 'Bucharest', cost: 211, directed: false },
+    { id: 'e16', from: 'Pitesti', to: 'Bucharest', cost: 101, directed: false },
+    { id: 'e17', from: 'Bucharest', to: 'Giurgiu', cost: 90, directed: false },
+    { id: 'e18', from: 'Bucharest', to: 'Urziceni', cost: 85, directed: false },
+    { id: 'e19', from: 'Urziceni', to: 'Hirsova', cost: 98, directed: false },
+    { id: 'e20', from: 'Hirsova', to: 'Eforie', cost: 86, directed: false },
+    { id: 'e21', from: 'Urziceni', to: 'Vaslui', cost: 142, directed: false },
+    { id: 'e22', from: 'Vaslui', to: 'Iasi', cost: 92, directed: false },
+    { id: 'e23', from: 'Iasi', to: 'Neamt', cost: 87, directed: false },
+  ],
+};
+
+// Simple 6-node network for quick inspection
+export const simpleGraphPreset: GraphData = {
+  startNodeId: 'A',
+  goalNodeId: 'F',
+  nodes: [
+    { id: 'A', label: 'A', x: 80, y: 200, heuristic: 10 },
+    { id: 'B', label: 'B', x: 220, y: 100, heuristic: 8 },
+    { id: 'C', label: 'C', x: 220, y: 300, heuristic: 6 },
+    { id: 'D', label: 'D', x: 380, y: 100, heuristic: 4 },
+    { id: 'E', label: 'E', x: 380, y: 300, heuristic: 3 },
+    { id: 'F', label: 'F', x: 520, y: 200, heuristic: 0 },
+  ],
+  edges: [
+    { id: 'e1', from: 'A', to: 'B', cost: 4, directed: false },
+    { id: 'e2', from: 'A', to: 'C', cost: 2, directed: false },
+    { id: 'e3', from: 'B', to: 'C', cost: 1, directed: false },
+    { id: 'e4', from: 'B', to: 'D', cost: 5, directed: false },
+    { id: 'e5', from: 'C', to: 'E', cost: 8, directed: false },
+    { id: 'e6', from: 'C', to: 'D', cost: 10, directed: false },
+    { id: 'e7', from: 'D', to: 'E', cost: 2, directed: false },
+    { id: 'e8', from: 'D', to: 'F', cost: 6, directed: false },
+    { id: 'e9', from: 'E', to: 'F', cost: 3, directed: false },
+  ],
+};
+
+// Directed Acyclic Graph (DAG) for Topological Sorting & Shortest Path
+export const dagPreset: GraphData = {
+  startNodeId: 'S',
+  goalNodeId: 'T',
+  nodes: [
+    { id: 'S', label: 'S', x: 80, y: 200, heuristic: 0 },
+    { id: 'A', label: 'A', x: 220, y: 120, heuristic: 0 },
+    { id: 'B', label: 'B', x: 220, y: 280, heuristic: 0 },
+    { id: 'C', label: 'C', x: 380, y: 120, heuristic: 0 },
+    { id: 'D', label: 'D', x: 380, y: 280, heuristic: 0 },
+    { id: 'T', label: 'T', x: 520, y: 200, heuristic: 0 },
+  ],
+  edges: [
+    { id: 'e1', from: 'S', to: 'A', cost: 1, directed: true },
+    { id: 'e2', from: 'S', to: 'B', cost: 2, directed: true },
+    { id: 'e3', from: 'A', to: 'C', cost: 3, directed: true },
+    { id: 'e4', from: 'B', to: 'C', cost: 1, directed: true },
+    { id: 'e5', from: 'B', to: 'D', cost: 4, directed: true },
+    { id: 'e6', from: 'C', to: 'T', cost: 2, directed: true },
+    { id: 'e7', from: 'D', to: 'T', cost: 1, directed: true },
+  ],
+};
