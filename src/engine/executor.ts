@@ -38,9 +38,12 @@ export interface ExtractOutcome {
  * Configurable at build time via the `VITE_ENGINE_URL` environment variable:
  *
  *   - Local development: leave unset (defaults to `http://127.0.0.1:8000`).
- *   - Vercel (same-origin): set to `/api`, which the bundled Python function
- *     under `api/index.py` serves. Note that Vercel has no JDK, so the Java
- *     option is hidden there (see `fetchEngineCapabilities`).
+ *   - Vercel (same-origin): the bundled FastAPI app in `app/main.py` serves the
+ *     engine at the site root, so leaving this unset still works only if the
+ *     localhost fallback is unreachable. Set it to the deployed origin
+ *     (e.g. `https://your-app.vercel.app`) or to `/` for same-origin calls.
+ *     Vercel has no JDK, so the Java option is hidden there
+ *     (see `fetchEngineCapabilities`).
  *   - Separate engine host: set to the full URL, e.g.
  *     `https://searchlab-engine.fly.dev`.
  */
