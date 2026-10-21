@@ -1774,17 +1774,48 @@ def health():
 # exception kills the whole event loop - which is why the engine appeared to
 # "randomly die" whenever a browser tab or the test runner disconnected.
 # The selector-based loop does not use IOCP and is immune to this.
+#
+# Setting the policy alone is NOT enough: ``uvicorn.run(loop="asyncio")`` sets
+# up its own loop, and on some uvicorn builds that reinstates the Proactor
+# loop. So we also build the selector loop explicitly and pass it to
+# ``uvicorn.Server.run`` via ``asyncio.run`` with an explicit loop factory.
 if sys.platform == "win32":
     import asyncio
 
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 
+def _make_selector_loop() -> "asyncio.AbstractEventLoop":
+    """Create a fresh selector-based event loop (Windows-safe accept())."""
+    import asyncio
+
+    if sys.platform == "win32":
+        return asyncio.SelectorEventLoop()
+    return asyncio.new_event_loop()
+
+
 if __name__ == "__main__":
+    import asyncio
     import uvicorn
 
     # Bind to all interfaces when hosted in a container (default), so the
     # platform's proxy can reach the service. Override with SEARCHLAB_HOST.
     host = os.environ.get("SEARCHLAB_HOST", "0.0.0.0")
     port = int(os.environ.get("PORT", os.environ.get("SEARCHLAB_PORT", "8000")))
-    uvicorn.run(app, host=host, port=port, loop="asyncio")
+
+    config = uvicorn.Config(app, host=host, port=port, log_level="info")
+    server = uvicorn.Server(config)
+
+    # Run uvicorn on the selector loop we create ourselves, so the Proactor
+    # loop can never reappear regardless of uvicorn's internal defaults.
+    loop = _make_selector_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        loop.run_until_complete(server.serve())
+    except KeyboardInterrupt:
+        pass
+    finally:
+        try:
+            loop.run_until_complete(loop.shutdown_asyncgens())
+        finally:
+            loop.close()

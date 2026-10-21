@@ -35,35 +35,42 @@ export interface ExtractOutcome {
 /**
  * Base URL of the SearchLab execution engine.
  *
- * Configurable at build time via the `VITE_ENGINE_URL` environment variable:
+ * Resolution order:
  *
- *   - Local development: leave unset (defaults to `http://127.0.0.1:8000`).
- *   - Vercel (same origin): the bundled FastAPI app in `app/main.py` serves the
- *     engine at the site root. Set `VITE_ENGINE_URL` to the deployed origin
- *     (e.g. `https://your-app.vercel.app`). Vercel has no JDK, so the Java
- *     option is hidden there (see `fetchEngineCapabilities`).
- *   - Separate engine host: set to the full URL, e.g.
- *     `https://searchlab-engine.fly.dev`.
+ *   1. `VITE_ENGINE_URL`, if set at build time. Use this only when the engine
+ *      runs on a *different* host than the page (e.g. a standalone engine
+ *      deployment).
+ *   2. On a deployed site (anything that is not localhost), the engine is
+ *      bundled in the *same* deployment by Vercel Services (see `vercel.json`)
+ *      and routes `/health`, `/execute`, `/extract-graph` at the site root.
+ *      So the correct base URL is this page's own origin.
+ *   3. On localhost, the engine is a separate process on port 8000 started
+ *      with `npm run engine`.
  *
- * When this is left at the localhost default on a deployed (non-localhost)
- * site, every request would target the *visitor's own machine* and fail with a
- * bare "Failed to fetch". {@link isLocalhostFallbackOnDeployedSite} detects that
- * so the UI can explain it instead of failing silently.
+ * Deriving (2) automatically means a deployed build works with no environment
+ * variables at all — the previous requirement to set `VITE_ENGINE_URL` by hand
+ * was the single most common cause of the "Failed to fetch" error, because a
+ * missed or mistyped value silently left the bundle pointing at
+ * `http://127.0.0.1:8000`, i.e. the visitor's own machine.
  */
 const LOCALHOST_ENGINE_URL = 'http://127.0.0.1:8000';
 
-const ENGINE_URL = (
-  (import.meta.env?.VITE_ENGINE_URL as string | undefined)?.replace(/\/+$/, '') ||
-  LOCALHOST_ENGINE_URL
-);
-
-/** True when the build fell back to localhost but the page is not on localhost. */
-export function isLocalhostFallbackOnDeployedSite(): boolean {
+/** True when the page is served from the local machine (dev / `vite preview`). */
+function isLocalhost(): boolean {
   if (typeof window === 'undefined') return false;
-  if (ENGINE_URL !== LOCALHOST_ENGINE_URL) return false;
   const host = window.location.hostname;
-  return host !== 'localhost' && host !== '127.0.0.1' && host !== '';
+  return host === 'localhost' || host === '127.0.0.1' || host === '';
 }
+
+function resolveEngineUrl(): string {
+  const configured = (import.meta.env?.VITE_ENGINE_URL as string | undefined)?.trim();
+  if (configured) return configured.replace(/\/+$/, '');
+  if (isLocalhost()) return LOCALHOST_ENGINE_URL;
+  // Deployed: the engine is co-located at this origin's root.
+  return window.location.origin;
+}
+
+const ENGINE_URL = resolveEngineUrl();
 
 /** Human-readable engine target, shown in error messages. */
 export function getEngineUrl(): string {
@@ -127,12 +134,8 @@ abstract class EngineAdapter implements ExecutionAdapter {
         error: {
           message: aborted
             ? 'Execution timed out. Possible infinite loop.'
-            : isLocalhostFallbackOnDeployedSite()
-              ? 'Could not reach the execution engine. This deployment was built ' +
-                'without VITE_ENGINE_URL set, so it is trying to reach ' +
-                `${ENGINE_URL} (this device). Set VITE_ENGINE_URL in the Vercel ` +
-                'project settings to the deployed site URL, then redeploy.'
-              : `${this.name} error: ${err.message}. Ensure the SearchLab engine is reachable at ${ENGINE_URL} (locally, start it with "npm run engine").`,
+            : `${this.name} error: ${err.message}. Could not reach the SearchLab ` +
+              `engine at ${ENGINE_URL}. Locally, start it with "npm run engine".`,
         },
         totalSteps: 0,
         durationMs: 0,

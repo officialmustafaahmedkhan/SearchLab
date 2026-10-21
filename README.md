@@ -133,14 +133,15 @@ Health check: `http://127.0.0.1:8000/health` should report
 
 ## Deployment (Vercel)
 
-Everything deploys to **Vercel as a single project**: the static React frontend
-plus a Python serverless function that runs the engine.
+Everything deploys to **Vercel as a single project**, using [Vercel
+Services](https://vercel.com/docs/services): the static React frontend and the
+Python engine are two services in one project, sharing one domain.
 
 | Endpoint | Runs on Vercel? |
 |---|---|
-| `POST /api/extract-graph` | ✅ Pure `ast` parsing, no execution |
-| `POST /api/execute` (Python, Learning + Trace) | ✅ |
-| `POST /api/execute-java` | ❌ Vercel ships no JDK |
+| `POST /extract-graph` | ✅ Pure `ast` parsing, no execution |
+| `POST /execute` (Python, Learning + Trace) | ✅ |
+| `POST /execute-java` | ❌ Vercel ships no JDK |
 
 Vercel provides Python but **no JDK**, so Java cannot run there. The engine
 detects this and reports it:
@@ -157,28 +158,61 @@ Java button appears as usual — nothing changes for local development.
 ### Deploying
 
 1. Import the repository into Vercel.
-2. Set one environment variable (Project → Settings → Environment Variables):
+2. Set the project's **Framework Preset to `Services`**
+   (Project → Settings → Build and Deployment). This step is **required**: a
+   project only builds as services when the framework is `Services` *and*
+   `vercel.json` contains a `services` key. With any other preset Vercel falls
+   back to its own framework detection and **silently ignores** the `services`
+   block.
+3. Deploy. No environment variables are needed. `vercel.json` handles the rest:
 
+   ```json
+   {
+     "services": {
+       "web":    { "root": ".", "framework": "vite",
+                   "buildCommand": "npm run build", "outputDirectory": "dist" },
+       "engine": { "root": ".", "framework": "fastapi",
+                   "entrypoint": "app.main:app" }
+     },
+     "rewrites": [
+       { "source": "/health",        "destination": { "service": "engine" } },
+       { "source": "/execute",       "destination": { "service": "engine" } },
+       { "source": "/execute-java",  "destination": { "service": "engine" } },
+       { "source": "/extract-graph", "destination": { "service": "engine" } },
+       { "source": "/(.*)",          "destination": { "service": "web" } }
+     ]
+   }
    ```
-   VITE_ENGINE_URL = /api
-   ```
 
-3. Deploy. `vercel.json` handles the rest:
+   Note that `buildCommand`, `outputDirectory`, and `framework` sit **inside**
+   each service. When `services` is present these keys are *not valid at the top
+   level* and must be moved into the service that owns them.
 
-   - builds the frontend with `npm run build` into `dist/`,
-   - serves the Python function from `api/index.py` at `/api/*`,
-   - rewrites all non-`/api` routes to `index.html` for the SPA,
-   - gives the function 60s / 1 GB (enough for Python traces).
+Verify with `https://<your-app>.vercel.app/health` — it must return **JSON**:
 
-Verify with `https://<your-app>.vercel.app/api/health`.
+```json
+{"status":"ok","java":"unavailable","languages":["python"]}
+```
+
+If it returns HTML instead, the engine service did not deploy; check that the
+Framework Preset is `Services`.
 
 ### How the two stay connected
 
-The frontend reads `VITE_ENGINE_URL` at **build time** (see
-`src/engine/executor.ts`). With it set to `/api`, requests go to the same origin
-as the app, so there is no CORS setup and no second deployment to manage.
-`.env.example` documents the options; if the variable is unset the frontend
-falls back to the local engine at `http://127.0.0.1:8000`.
+The frontend needs to know where the engine is, but **no environment variable
+is required** (see `resolveEngineUrl` in `src/engine/executor.ts`):
+
+1. `VITE_ENGINE_URL`, if set at build time — only for an engine on a *different*
+   host.
+2. Otherwise, on a deployed site the engine is co-located, so the base URL is
+   simply the page's own origin — no CORS setup, no second deployment.
+3. On `localhost`, the engine defaults to `http://127.0.0.1:8000`.
+
+Deriving (2) automatically is deliberate: requiring a hand-set
+`VITE_ENGINE_URL` was the single most common cause of a `"Failed to fetch"`
+error, because a missed or mistyped value silently left the shipped bundle
+pointing at `http://127.0.0.1:8000` — i.e. the *visitor's own machine* — which
+worked on the developer's laptop and nowhere else.
 
 ### Engine notes
 
@@ -186,21 +220,24 @@ falls back to the local engine at `http://127.0.0.1:8000`.
   student's usual `if __name__ == "__main__":` block actually executes. Without
   it, `exec()` resolves `__name__` to `"builtins"`, the condition is false, and
   the program is silently skipped.
-- **Windows event loop.** On Windows the engine selects asyncio's
-  `WindowsSelectorEventLoopPolicy`. uvicorn otherwise uses the proactor loop,
-  whose `accept()` raises `WinError 64` when a client disconnects abruptly —
-  which killed the whole server. The selector loop is not affected.
+- **Windows event loop.** On Windows the engine runs uvicorn on an explicitly
+  created `SelectorEventLoop`. uvicorn's proactor loop uses IOCP, whose
+  `accept()` raises `WinError 64` (*"The specified network name is no longer
+  available"*) when a client disconnects abruptly, killing the whole event loop —
+  which is why the engine appeared to die at random. Setting the policy alone is
+  not sufficient, because `uvicorn.run(loop="asyncio")` sets up its own loop and
+  can reinstate the proactor one; the loop is therefore created and passed to
+  `uvicorn.Server` directly.
 
 ## Testing
 
 Run with the engine running:
 
 ```bash
-npx vitest run --no-file-parallelism
+npx vitest run
 ```
 
-`--no-file-parallelism` is recommended: the test files hit the shared engine,
-and running them sequentially avoids contending for it. The suite covers:
+The suite covers:
 
 - **All 21 catalog algorithms end-to-end in both Python and Java.**
 - Correct search results (BFS path, UCS/A\* cost 418 on the Romania map,
