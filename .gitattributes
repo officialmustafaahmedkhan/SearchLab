@@ -1,0 +1,13 @@
+# Normalise line endings so Windows checkouts do not spam warnings and files
+# stay consistent across machines.
+* text=auto eol=lf
+
+# Windows-only helpers keep CRLF.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binary assets are left untouched.
+*.png binary
+*.jpg binary
+*.ico binary
+*.svg text
