@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { pythonExecutor, javaExecutor, fetchEngineCapabilities } from '../engine/executor';
+import {
+  pythonExecutor,
+  javaExecutor,
+  fetchEngineCapabilities,
+  decideEngineUrl,
+} from '../engine/executor';
 import { ALGORITHM_CATALOG } from '../algorithms/catalog';
 
 // These tests exercise the local SearchLab execution engine
@@ -63,6 +68,56 @@ describe('Engine capabilities', () => {
       expect(caps.languages).toContain('python');
     } finally {
       globalThis.fetch = originalFetch;
+    }
+  });
+});
+
+/**
+ * The hosted build broke once because the engine URL resolved to
+ * `http://127.0.0.1:8000`, i.e. the *visitor's own machine*, so every device
+ * except the developer's laptop failed with "Failed to fetch". These tests pin
+ * the resolution rules so that cannot come back silently.
+ */
+describe('Engine URL resolution', () => {
+  const deployed = { hostname: 'searchlab-mak.vercel.app', origin: 'https://searchlab-mak.vercel.app' };
+  const local = { hostname: 'localhost', origin: 'http://localhost:5173' };
+
+  it('uses the page origin on a deployed site when nothing is configured', () => {
+    expect(decideEngineUrl(undefined, deployed)).toBe('https://searchlab-mak.vercel.app');
+  });
+
+  it('uses the local engine on localhost when nothing is configured', () => {
+    expect(decideEngineUrl(undefined, local)).toBe('http://127.0.0.1:8000');
+  });
+
+  it('ignores a localhost VITE_ENGINE_URL on a deployed site', () => {
+    // The exact misconfiguration that made the app work only on the
+    // developer's machine.
+    expect(decideEngineUrl('http://127.0.0.1:8000', deployed)).toBe(
+      'https://searchlab-mak.vercel.app'
+    );
+    expect(decideEngineUrl('http://localhost:8000', deployed)).toBe(
+      'https://searchlab-mak.vercel.app'
+    );
+  });
+
+  it('honours an explicit non-localhost engine host', () => {
+    expect(decideEngineUrl('https://engine.example.com', deployed)).toBe(
+      'https://engine.example.com'
+    );
+  });
+
+  it('strips trailing slashes from a configured value', () => {
+    expect(decideEngineUrl('https://engine.example.com///', deployed)).toBe(
+      'https://engine.example.com'
+    );
+  });
+
+  it('never resolves to localhost on a deployed site', () => {
+    for (const value of [undefined, '', '  ', 'http://127.0.0.1:8000', '/api']) {
+      const url = decideEngineUrl(value, deployed);
+      expect(url).not.toContain('127.0.0.1');
+      expect(url).not.toContain('localhost');
     }
   });
 });

@@ -63,11 +63,41 @@ function isLocalhost(): boolean {
 }
 
 function resolveEngineUrl(): string {
-  const configured = (import.meta.env?.VITE_ENGINE_URL as string | undefined)?.trim();
-  if (configured) return configured.replace(/\/+$/, '');
-  if (isLocalhost()) return LOCALHOST_ENGINE_URL;
+  return decideEngineUrl(
+    import.meta.env?.VITE_ENGINE_URL as string | undefined,
+    typeof window !== 'undefined' ? window.location : undefined,
+  );
+}
+
+/**
+ * Pure decision logic for {@link ENGINE_URL}, exported so the exact scenario
+ * that broke the hosted build can be unit-tested without a browser.
+ *
+ * @param configured Raw `VITE_ENGINE_URL` value, if any.
+ * @param location   The page's location, or `undefined` outside a browser.
+ */
+export function decideEngineUrl(
+  configured: string | undefined,
+  location: { hostname: string; origin: string } | undefined,
+): string {
+  const host = location?.hostname ?? '';
+  const onLocalhost = host === 'localhost' || host === '127.0.0.1' || host === '';
+
+  const value = configured?.trim();
+  if (value) {
+    // A localhost value is refused on a deployed site: it would point every
+    // visitor at their own machine and fail with a bare "Failed to fetch".
+    // That mistake is easy to make, so a stale or wrong VITE_ENGINE_URL can
+    // no longer break the hosted app.
+    const pointsAtLocalhost = /(^|\/\/)(localhost|127\.0\.0\.1)(:|\/|$)/.test(value);
+    if (!(pointsAtLocalhost && !onLocalhost)) {
+      return value.replace(/\/+$/, '');
+    }
+  }
+
+  if (onLocalhost) return LOCALHOST_ENGINE_URL;
   // Deployed: the engine is co-located at this origin's root.
-  return window.location.origin;
+  return location?.origin || LOCALHOST_ENGINE_URL;
 }
 
 const ENGINE_URL = resolveEngineUrl();
