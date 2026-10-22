@@ -121,12 +121,26 @@ npm install
 npm run engine:install   # pip install -r requirements.txt
 ```
 
-Run (two terminals):
+Run — **one double-click**, or two terminals:
+
+```text
+start.bat                # opens both servers in their own windows
+```
+
+or manually:
 
 ```bash
 npm run engine           # execution engine on http://127.0.0.1:8000
 npm run dev              # Vite dev server on http://localhost:5173
 ```
+
+Then open **http://localhost:5173**.
+
+`start.bat` is the recommended way: it checks that Python and npm exist, runs
+`npm install` if `node_modules` is missing, starts both servers in separate
+windows (so you can watch their logs and stop either with Ctrl+C), and confirms
+the engine came up. Because the servers run in your own terminal windows, they
+keep running independently of any editor or AI session.
 
 Health check: `http://127.0.0.1:8000/health` should report
 `{"status":"ok", "python":"…", "java":"available"}`.
